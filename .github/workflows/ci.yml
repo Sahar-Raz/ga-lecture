@@ -1,52 +1,56 @@
-name: Django CI (Advanced)
+# .github/workflows/ci.yml
+name: CI
 
 on:
   push:
-    branches: [ "main", "startpj" ] # テストのためにstartpjも追加
+    branches: [main, startpj] # startpjでも動くように追加
   pull_request:
-    branches: [ "main" ]
-  workflow_dispatch:
+    branches: [main]
 
 jobs:
-  test:
-    name: Test (Python ${{ matrix.python }})
+  lint:
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      # uv を使わずに pip を使う構成に合わせています
+      - run: pip install -r requirements.txt
+      - name: Ruff（書式＋静的解析）
+        run: npx ruff check . || pip install ruff && ruff check .
+
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # パイプのエラーを正しく拾うための魔法の1行
+    defaults:
+      run:
+        shell: bash
     strategy:
       fail-fast: false
       matrix:
         python: ["3.11", "3.12"]
-
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Install uv
-        uses: astral-sh/setup-uv@v5 # これはastral-shで合っています
-        with:
-          enable-cache: true
-
-      - name: Set up Python
-        uses: actions/setup-python@v5 # ここを修正しました（astral-shではなくactions）
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python }}
-
-      - name: Install dependencies
-        run: uv sync
-
-      - name: Run Ruff (Lint)
-        run: uv run ruff check .
-
-      - name: Run Pytest
+          cache: pip
+      - run: pip install -r requirements.txt
+      - name: pytest + coverage
         env:
           DJANGO_SETTINGS_MODULE: config.settings
-        run: uv run pytest -v | tee pytest.log
-
-      - name: Post Summary
+        # タイポを修正し、パイプエラーを検知できるように設定
+        run: |
+          set -o pipefail
+          pytest -v --cov=web --cov-report=term-missing | tee pytest.log
+      - name: サマリを書く
         if: always()
         run: |
-          echo "## テストレポート (Python ${{ matrix.python }})" >> $GITHUB_STEP_SUMMARY
-          echo "### 実行ログ（抜粋）" >> $GITHUB_STEP_SUMMARY
-          echo '```text' >> $GITHUB_STEP_SUMMARY
-          tail -n 20 pytest.log >> $GITHUB_STEP_SUMMARY
-          echo '```' >> $GITHUB_STEP_SUMMARY
+          echo "## テスト結果 (Python ${{ matrix.python }})" >> "$GITHUB_STEP_SUMMARY"
+          echo '```text' >> "$GITHUB_STEP_SUMMARY"
+          tail -n 15 pytest.log >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
