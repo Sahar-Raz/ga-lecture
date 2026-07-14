@@ -1,0 +1,45 @@
+name: Django CI
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+  # 手動実行もできるようにしておく
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1. コードをチェックアウト
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # 2. uv をインストール（公式のアクションを使用）
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true # キャッシュを有効にして高速化
+
+      # 3. Pythonのセットアップ
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version-file: "pyproject.toml"
+
+      # 4. 依存関係のインストール
+      - name: Install dependencies
+        run: uv sync
+
+      # 5. Ruff による Lint チェック
+      - name: Run Ruff (Lint)
+        run: uv run ruff check .
+
+      # 6. Pytest によるテスト実行
+      - name: Run Tests
+        # 環境変数をここで指定することで、設定エラーを防ぎます
+        env:
+          DJANGO_SETTINGS_MODULE: config.settings
+        run: uv run pytest
