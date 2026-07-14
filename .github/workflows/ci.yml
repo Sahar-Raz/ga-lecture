@@ -2,7 +2,7 @@ name: Django CI (Advanced)
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [ "main", "startpj" ] # テストのためにstartpjも追加
   pull_request:
     branches: [ "main" ]
   workflow_dispatch:
@@ -13,21 +13,21 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     strategy:
-      fail-fast: false # 片方のバージョンが落ちても、もう片方の結果を最後まで見たい
+      fail-fast: false
       matrix:
-        python: ["3.11", "3.12"] # 複数の環境で同時にテスト
+        python: ["3.11", "3.12"]
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v5
+        uses: astral-sh/setup-uv@v5 # これはastral-shで合っています
         with:
           enable-cache: true
 
       - name: Set up Python
-        uses: astral-sh/setup-python@v5
+        uses: actions/setup-python@v5 # ここを修正しました（astral-shではなくactions）
         with:
           python-version: ${{ matrix.python }}
 
@@ -40,11 +40,10 @@ jobs:
       - name: Run Pytest
         env:
           DJANGO_SETTINGS_MODULE: config.settings
-        # ログを pytest.log に保存しつつ、画面にも出す
         run: uv run pytest -v | tee pytest.log
 
       - name: Post Summary
-        if: always() # テストが失敗しても必ず実行してレポートを残す
+        if: always()
         run: |
           echo "## テストレポート (Python ${{ matrix.python }})" >> $GITHUB_STEP_SUMMARY
           echo "### 実行ログ（抜粋）" >> $GITHUB_STEP_SUMMARY
