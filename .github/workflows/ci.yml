@@ -1,44 +1,53 @@
-name: Django CI
+name: Django CI (Advanced)
 
 on:
   push:
+    branches: [ "main" ]
   pull_request:
     branches: [ "main" ]
-  # 手動実行もできるようにしておく
   workflow_dispatch:
 
 jobs:
   test:
+    name: Test (Python ${{ matrix.python }})
     runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false # 片方のバージョンが落ちても、もう片方の結果を最後まで見たい
+      matrix:
+        python: ["3.11", "3.12"] # 複数の環境で同時にテスト
 
     steps:
-      # 1. コードをチェックアウト
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # 2. uv をインストール（公式のアクションを使用）
       - name: Install uv
         uses: astral-sh/setup-uv@v5
         with:
-          enable-cache: true # キャッシュを有効にして高速化
+          enable-cache: true
 
-      # 3. Pythonのセットアップ
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: astral-sh/setup-python@v5
         with:
-          python-version-file: "pyproject.toml"
+          python-version: ${{ matrix.python }}
 
-      # 4. 依存関係のインストール
       - name: Install dependencies
         run: uv sync
 
-      # 5. Ruff による Lint チェック
       - name: Run Ruff (Lint)
         run: uv run ruff check .
 
-      # 6. Pytest によるテスト実行
-      - name: Run Tests
-        # 環境変数をここで指定することで、設定エラーを防ぎます
+      - name: Run Pytest
         env:
           DJANGO_SETTINGS_MODULE: config.settings
-        run: uv run pytest
+        # ログを pytest.log に保存しつつ、画面にも出す
+        run: uv run pytest -v | tee pytest.log
+
+      - name: Post Summary
+        if: always() # テストが失敗しても必ず実行してレポートを残す
+        run: |
+          echo "## テストレポート (Python ${{ matrix.python }})" >> $GITHUB_STEP_SUMMARY
+          echo "### 実行ログ（抜粋）" >> $GITHUB_STEP_SUMMARY
+          echo '```text' >> $GITHUB_STEP_SUMMARY
+          tail -n 20 pytest.log >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
