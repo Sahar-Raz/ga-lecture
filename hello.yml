@@ -1,0 +1,18 @@
+name: Hello Workflow
+
+# push（コードのアップロード）と workflow_dispatch（手動ボタン）で起動
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  # 1つの Job "greet" を定義
+  greet:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Say Hello
+        run: |
+          echo "あいさつ: こんにちは！GitHub Actionsの世界へようこそ！"
+          echo "実行日時: $(date)"
+          echo "ブランチ名: ${{ github.ref }}"
+          echo "実行者: ${{ github.actor }}"
